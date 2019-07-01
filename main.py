@@ -111,88 +111,77 @@ def create_dataset(raw_cookie, predictor=None):
 def _process(tmp_image, expected: str = None):
     with closing(Image.open(tmp_image)) as im:
         width, height = im.size
-
-        # select by color
         px = im.load()
-        for x in range(width):
-            for y in range(height):
-                if px[x, y] in ((140, 140, 140),):
-                    # color in green if at least one neighboor is 140
-                    count_140_neighbour = 0
-                    for (xx, yy) in (
-                        (x - 1, y + 1),
-                        (x - 1, y),
-                        (x - 1, y - 1),
-                        (x, y + 1),
-                        (x, y - 1),
-                        (x + 1, y + 1),
-                        (x + 1, y),
-                        (x + 1, y - 1),
-                    ):
-                        try:
-                            if px[xx, yy] == (140, 140, 140):
-                                count_140_neighbour += 1
-                        except IndexError:
-                            pass
-                    if count_140_neighbour <= 2:
-                        px[x, y] = (255, 255, 255)
+
+        def star(x, y):
+            return (
+                (x - 1, y + 1),
+                (x - 1, y),
+                (x - 1, y - 1),
+                (x, y + 1),
+                (x, y - 1),
+                (x + 1, y + 1),
+                (x + 1, y),
+                (x + 1, y - 1),
+            )
+
+        def plus(x, y):
+            return ((x - 1, y), (x + 1, y), (x, y + 1), (x, y - 1))
+
+        def paint(select_predicate, get_neighbours, color_predicate, new_color):
+            for x in range(width):
+                for y in range(height):
+                    if select_predicate(x, y):
+                        # color in green if at least one neighboor is 140
+                        count_blank_neighbour = 0
+                        count_140_neighbour = 0
+                        for (xx, yy) in get_neighbours(x, y):
+                            try:
+                                if px[xx, yy] == (255, 255, 255):
+                                    count_blank_neighbour += 1
+                                if px[xx, yy] == (140, 140, 140):
+                                    count_140_neighbour += 1
+                            except IndexError:
+                                pass
+                        if color_predicate(count_blank_neighbour, count_140_neighbour):
+                            px[x, y] = new_color
+
+        select_predicate = lambda x, y: px[x, y] in ((140, 140, 140),)
+        get_neighbours = star
+        color_predicate = lambda count_blank_neighbour, count_140_neighbour: count_140_neighbour <= 2
+        new_color = (255, 255, 255)
+
+        paint(select_predicate, get_neighbours, color_predicate, new_color)
         display_image(im)
-        for x in range(width):
-            for y in range(height):
-                if px[x, y] not in ((140, 140, 140), (255, 255, 255)):
-                    # color in green if at least one neighboor is 140
-                    has_blank_neighbour = False
-                    has_140_neighbour = False
-                    for (xx, yy) in ((x - 1, y), (x + 1, y), (x, y + 1), (x, y - 1)):
-                        try:
-                            has_blank_neighbour = has_blank_neighbour or px[xx, yy] == (
-                                255,
-                                255,
-                                255,
-                            )
-                            has_140_neighbour = has_140_neighbour or px[xx, yy] == (
-                                140,
-                                140,
-                                140,
-                            )
-                        except IndexError:
-                            pass
-                    if not has_blank_neighbour and has_140_neighbour:
-                        px[x, y] = (0, 0, 255)
+
+        select_predicate = lambda x, y: px[x, y] not in ((140, 140, 140), (255, 255, 255),)
+        get_neighbours = plus
+        color_predicate = lambda count_blank_neighbour, count_140_neighbour: count_blank_neighbour == 0 and count_140_neighbour > 0
+        new_color = (0, 0, 255)
+
+        paint(select_predicate, get_neighbours, color_predicate, new_color)
         display_image(im)
-        for x in range(width):
-            for y in range(height):
-                if px[x, y] in ((0, 0, 255),):
-                    px[x, y] = (140, 140, 140)
-        display_image(im)
-        for x in range(width):
-            for y in range(height):
-                if px[x, y] not in ((140, 140, 140), (255, 255, 255)):
-                    # color in green if at least one neighboor is 140
-                    has_blank_neighbour = False
-                    has_140_neighbour = False
-                    for (xx, yy) in ((x - 1, y), (x + 1, y), (x, y + 1), (x, y - 1)):
-                        try:
-                            has_blank_neighbour = has_blank_neighbour or px[xx, yy] == (
-                                255,
-                                255,
-                                255,
-                            )
-                            has_140_neighbour = has_140_neighbour or px[xx, yy] == (
-                                140,
-                                140,
-                                140,
-                            )
-                        except IndexError:
-                            pass
-                    if not has_blank_neighbour and has_140_neighbour:
-                        px[x, y] = (0, 0, 255)
-        display_image(im)
+
         for x in range(width):
             for y in range(height):
                 if px[x, y] in ((0, 0, 255),):
                     px[x, y] = (140, 140, 140)
         display_image(im)
+
+        select_predicate = lambda x, y: px[x, y] not in ((140, 140, 140), (255, 255, 255),)
+        get_neighbours = plus
+        color_predicate = lambda count_blank_neighbour, count_140_neighbour: count_blank_neighbour == 0 and count_140_neighbour > 0
+        new_color = (0, 0, 255)
+
+        paint(select_predicate, get_neighbours, color_predicate, new_color)
+        display_image(im)
+
+        for x in range(width):
+            for y in range(height):
+                if px[x, y] in ((0, 0, 255),):
+                    px[x, y] = (140, 140, 140)
+        display_image(im)
+
         for x in range(width):
             for y in range(height):
                 if px[x, y] not in ((140, 140, 140), (255, 255, 255)):
